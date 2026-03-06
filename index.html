@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Task Creation Test</title>
+    <meta charset="UTF-8">
+    <title>Task Creation System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         * {
             box-sizing: border-box;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         body {
@@ -75,14 +76,20 @@
             transition: 0.3s;
         }
 
-        button:hover {
+        button:hover:not(:disabled) {
             background-color: #5a009d;
+        }
+
+        button:disabled {
+            background-color: #bfa6d8;
+            cursor: not-allowed;
         }
 
         #statusText {
             text-align: center;
             margin-top: 15px;
             font-weight: bold;
+            min-height: 20px; /* Prevents layout shift when text appears */
         }
     </style>
 </head>
@@ -92,17 +99,17 @@
         <h2>Create Task</h2>
 
         <div class="form-group">
-            <label>Task Name</label>
-            <input type="text" id="taskName" placeholder="Enter task name">
+            <label for="taskName">Task Name</label>
+            <input type="text" id="taskName" placeholder="Enter task name" required>
         </div>
 
         <div class="form-group">
-            <label>Description</label>
-            <textarea id="description" placeholder="Enter task description"></textarea>
+            <label for="description">Description</label>
+            <textarea id="description" placeholder="Enter task description" required></textarea>
         </div>
 
         <div class="form-group">
-            <label>Priority</label>
+            <label for="priority">Priority</label>
             <select id="priority">
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
@@ -111,51 +118,96 @@
         </div>
 
         <div class="form-group">
-            <label>User</label>
-            <input type="text" id="user" placeholder="Enter user name">
+            <label for="assignedTo">Assigned To</label>
+            <select id="assignedTo">
+                <option value="Marketing Team">Marketing Team</option>
+                <option value="Creatives Team">Creatives Team</option>
+                <option value="Development Team">Development Team</option>
+                <option value="Operations Team">Operations Team</option>
+                <option value="Everyone">Everyone</option>
+            </select>
         </div>
 
-        <button onclick="sendTestTask()">Submit Task</button>
+        <div class="form-group">
+            <label for="user">Created By (User)</label>
+            <input type="text" id="user" placeholder="Enter your name" required>
+        </div>
+
+        <button id="submitBtn" onclick="sendTestTask()">Submit Task</button>
 
         <p id="statusText"></p>
     </div>
 
     <script>
-        function sendTestTask() {
+        async function sendTestTask() {
+            // 1. Grab DOM elements
+            const submitBtn = document.getElementById("submitBtn");
             const statusText = document.getElementById("statusText");
+            
+            // 2. IMPORTANT: Replace this with your newly deployed Google Apps Script Web App URL
+            const webAppUrl = "https://script.google.com/macros/s/AKfycbyn60jnSluxnqetpUG4kjex-rI9P1hsfBKEKth6CVdjHMxXCC7EpkCMyX8hrdLTW9vIrQ/exec"; 
+
+            // 3. Basic Validation
+            const taskName = document.getElementById("taskName").value.trim();
+            const user = document.getElementById("user").value.trim();
+            
+            if (!taskName || !user) {
+                statusText.innerText = "⚠️ Please fill in the Task Name and User.";
+                statusText.style.color = "orange";
+                return;
+            }
+
+            // 4. Update UI to loading state
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Sending...";
             statusText.innerText = "Sending... Please wait.";
             statusText.style.color = "#6a0dad";
 
-            const webAppUrl = "https://script.google.com/macros/s/AKfycbw9zl_ZiKxdBXVmlI57zxcY3jSWOTf4MKqppb3i_LERd2EAMi3XU2xPt-Rgorz4G5f5/exec";
-
+            // 5. Construct Payload
             const taskData = {
-                taskName: document.getElementById("taskName").value,
-                description: document.getElementById("description").value,
+                taskName: taskName,
+                description: document.getElementById("description").value.trim(),
                 priority: document.getElementById("priority").value,
-                user: document.getElementById("user").value
+                assignedTo: document.getElementById("assignedTo").value,
+                user: user
             };
 
-            fetch(webAppUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8'
-                },
-                body: JSON.stringify(taskData)
-            })
-            .then(response => {
-                statusText.innerText = "✅ Task successfully sent!";
-                statusText.style.color = "green";
+            // 6. Send to Backend
+            try {
+                const response = await fetch(webAppUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8' // Required for Google Apps Script CORS
+                    },
+                    body: JSON.stringify(taskData)
+                });
 
-                // Clear form
-                document.getElementById("taskName").value = "";
-                document.getElementById("description").value = "";
-                document.getElementById("priority").value = "Low";
-                document.getElementById("user").value = "";
-            })
-            .catch(err => {
+                if (response.ok) {
+                    statusText.innerText = "✅ Task successfully sent to Discord!";
+                    statusText.style.color = "green";
+
+                    // Reset form fields
+                    document.getElementById("taskName").value = "";
+                    document.getElementById("description").value = "";
+                    document.getElementById("priority").value = "Low";
+                    document.getElementById("assignedTo").value = "Marketing Team";
+                    document.getElementById("user").value = "";
+                } else {
+                    throw new Error("Server responded with an error.");
+                }
+            } catch (err) {
                 statusText.innerText = "❌ Error: " + err.message;
                 statusText.style.color = "red";
-            });
+            } finally {
+                // Restore button state
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Submit Task";
+                
+                // Clear status message after 5 seconds
+                setTimeout(() => {
+                    statusText.innerText = "";
+                }, 5000);
+            }
         }
     </script>
 
